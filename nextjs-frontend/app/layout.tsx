@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import { GeistSans } from "geist/font/sans";
 
 export const metadata: Metadata = {
   title: "Healthcare Claims Copilot",
@@ -15,7 +16,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-background text-foreground">
+      <body className={`${GeistSans.className} min-h-screen bg-background text-foreground antialiased`}
+      >
         <div className="flex min-h-screen">
           {/* Sidebar */}
           <aside className="w-64 border-r bg-card">
@@ -31,13 +33,22 @@ export default function RootLayout({
               <div className="font-medium text-muted-foreground">
                 Sections
               </div>
-              <Link href="/" className="block rounded px-2 py-1 bg-muted">
+              <Link
+                href="/"
+                className="block rounded px-2 py-1 bg-muted"
+              >
                 Triage
               </Link>
-              <Link href="/agent" className="block rounded px-2 py-1 hover:bg-muted">
+              <Link
+                href="/agent"
+                className="block rounded px-2 py-1 hover:bg-muted"
+              >
                 Agent View
               </Link>
-              <Link href="/policies" className="block rounded px-2 py-1 hover:bg-muted">
+              <Link
+                href="/policies"
+                className="block rounded px-2 py-1 hover:bg-muted"
+              >
                 Policies
               </Link>
             </nav>
