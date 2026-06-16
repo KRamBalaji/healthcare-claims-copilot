@@ -39,6 +39,12 @@ class PredictionResponse(BaseModel):
     denial_probability: float
     top_denial_reasons: List[DenialReason]
 
+class ExplanationResponse(BaseModel):
+    explanation: str
+    approval_probability: float
+    denial_probability: float
+    top_denial_reasons: List[DenialReason]
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -75,4 +81,51 @@ def predict_claim(claim: ClaimInput):
         approval_probability=approval_score,
         denial_probability=denial_score,
         top_denial_reasons=reasons,
+    )
+
+
+@app.post("/explain_claim", response_model=ExplanationResponse)
+def explain_claim(claim: ClaimInput) -> ExplanationResponse:
+    """
+    For now: call our prediction logic and generate a structured,
+    human-readable explanation from those results.
+    Later: plug in RAG + LLM here.
+    """
+    prediction = predict_claim(claim)
+
+    denial_pct = round(prediction.denial_probability * 100, 1)
+    approval_pct = round(prediction.approval_probability * 100, 1)
+
+    reasons_str = ", ".join(
+        f"{r.reason.replace('_', ' ')} ({round(r.probability * 100, 1)}%)"
+        for r in prediction.top_denial_reasons
+    )
+
+    base_explanation = (
+        f"This claim has an estimated {denial_pct}% chance of being denied and a "
+        f"{approval_pct}% chance of being approved, based on similar past cases.\n\n"
+        f"The most likely denial reasons are: {reasons_str}."
+    )
+
+    if claim.patient_question:
+        explanation = (
+            f"You asked: \"{claim.patient_question.strip()}\"\n\n"
+            f"{base_explanation}\n\n"
+            "To reduce the risk of denial, you may need to provide additional clinical "
+            "documentation, confirm whether the provider is in network, and ensure that "
+            "any required prior authorization or referral is on file."
+        )
+    else:
+        explanation = (
+            f"{base_explanation}\n\n"
+            "To reduce the risk of denial, the reviewing agent should check for required "
+            "prior authorizations, referrals, and adequate clinical documentation for the "
+            "requested procedures."
+        )
+
+    return ExplanationResponse(
+        explanation=explanation,
+        approval_probability=prediction.approval_probability,
+        denial_probability=prediction.denial_probability,
+        top_denial_reasons=prediction.top_denial_reasons,
     )

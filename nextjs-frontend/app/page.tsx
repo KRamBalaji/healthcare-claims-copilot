@@ -8,10 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
+type DenialReason = { reason: string; probability: number };
+
 type PredictionResult = {
   approval_probability: number;
   denial_probability: number;
   top_denial_reasons: { reason: string; probability: number }[];
+};
+
+type ExplanationResult = {
+  explanation: string;
+  approval_probability: number;
+  denial_probability: number;
+  top_denial_reasons: DenialReason[];
 };
 
 export default function TriagePage() {
@@ -23,7 +32,7 @@ export default function TriagePage() {
   const [patientQuestion, setPatientQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
-  const [explanation, setExplanation] = useState<string | null>(null);
+  const [explanationResult, setExplanationResult] = useState<ExplanationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -31,46 +40,73 @@ export default function TriagePage() {
     setError(null);
     setLoading(true);
     setPrediction(null);
-    setExplanation(null);
+    setExplanationResult(null);
+
+    // 1) Validate required fields
+    const amount = parseFloat(billedAmount);
+
+    if (!billedAmount || Number.isNaN(amount) || amount <= 0) {
+      setError("Please enter a valid billed amount.");
+      setLoading(false);
+      return;
+    }
+
+    // you can also enforce some defaults:
+    const provider = providerType || "primary_care";
+    const network = networkStatus || "in_network";
+
+    const payload = {
+      icd_codes: icdCodes
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean),
+      cpt_codes: cptCodes
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean),
+      billed_amount: amount,
+      provider_type: provider,
+      network_status: network,
+      patient_question: patientQuestion || null,
+    };
 
     try {
-      const payload = {
-        icd_codes: icdCodes.split(",").map((c) => c.trim()).filter(Boolean),
-        cpt_codes: cptCodes.split(",").map((c) => c.trim()).filter(Boolean),
-        billed_amount: parseFloat(billedAmount),
-        provider_type: providerType || "primary_care",
-        network_status: networkStatus || "in_network",
-        patient_question: patientQuestion || null,
-      };
+      console.log("payload to /predict_claim", payload);
 
-      const res = await fetch("http://localhost:8000/predict_claim", {
+      // 2) Predict
+      const predRes = await fetch("http://localhost:8000/predict_claim", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        throw new Error(`Backend error: ${res.status}`);
+      if (!predRes.ok) {
+        const body = await predRes.text();
+        console.error("predict_claim error body:", body);
+        throw new Error(`Backend error in /predict_claim: ${predRes.status}`);
       }
 
-      const data = await res.json() as PredictionResult;
+      const predData = (await predRes.json()) as PredictionResult;
+      setPrediction(predData);
 
-      setPrediction(data);
-      // Temporary explanation based on prediction; we will later call /explain_claim
-      const topReasons = data.top_denial_reasons
-        .map((r) => r.reason.replace(/_/g, " "))
-        .join(", ");
+      // 3) Explain
+      const explRes = await fetch("http://localhost:8000/explain_claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      setExplanation(
-        `This claim has an estimated ${(data.denial_probability * 100).toFixed(
-          1
-        )}% chance of denial. Likely reasons include: ${topReasons}.`
-      );
+      if (!explRes.ok) {
+        const body = await explRes.text();
+        console.error("explain_claim error body:", body);
+        throw new Error(`Backend error in /explain_claim: ${explRes.status}`);
+      }
+
+      const explData = (await explRes.json()) as ExplanationResult;
+      setExplanationResult(explData);
     } catch (err) {
       console.error(err);
-      setError("Could not reach the claims prediction service. Please try again.");
+      setError("Could not reach the claims copilot service. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -166,7 +202,13 @@ export default function TriagePage() {
                 <p className="text-xs text-red-500">{error}</p>
               )}
 
-              <Button type="submit" disabled={loading}>
+              <Button
+                type="submit"
+                disabled={
+                  loading ||
+                  !billedAmount // require at least amount
+                }
+              >
                 {loading ? "Analyzing claim..." : "Analyze claim"}
               </Button>
             </form>
@@ -212,12 +254,16 @@ export default function TriagePage() {
         <TabsContent value="explanation">
           <Card className="p-4">
             <h3 className="text-sm font-medium mb-2">Explanation</h3>
-            {!explanation ? (
+            {!explanationResult ? (
               <p className="text-xs text-muted-foreground">
                 After analyzing a claim, a natural-language explanation will appear here.
               </p>
             ) : (
-              <p className="text-sm">{explanation}</p>
+              <div className="space-y-2 text-sm">
+                <p className="whitespace-pre-line">
+                  {explanationResult.explanation}
+                </p>
+              </div>
             )}
           </Card>
         </TabsContent>
