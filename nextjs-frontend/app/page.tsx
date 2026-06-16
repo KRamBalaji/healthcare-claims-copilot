@@ -43,26 +43,34 @@ export default function TriagePage() {
         patient_question: patientQuestion || null,
       };
 
-      // Temporary: just log payload. We will wire this to FastAPI soon.
-      console.log("Submitting claim payload", payload);
+      const res = await fetch("http://localhost:8000/predict_claim", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-      // Fake result for now
-      const fakeResult: PredictionResult = {
-        approval_probability: 0.35,
-        denial_probability: 0.65,
-        top_denial_reasons: [
-          { reason: "insufficient_documentation", probability: 0.5 },
-          { reason: "no_prior_authorization", probability: 0.3 },
-        ],
-      };
+      if (!res.ok) {
+        throw new Error(`Backend error: ${res.status}`);
+      }
 
-      setPrediction(fakeResult);
+      const data = await res.json() as PredictionResult;
+
+      setPrediction(data);
+      // Temporary explanation based on prediction; we will later call /explain_claim
+      const topReasons = data.top_denial_reasons
+        .map((r) => r.reason.replace(/_/g, " "))
+        .join(", ");
+
       setExplanation(
-        "Based on the provided codes and billed amount, this claim has a higher chance of denial due to missing prior authorization and potentially insufficient documentation for the requested service."
+        `This claim has an estimated ${(data.denial_probability * 100).toFixed(
+          1
+        )}% chance of denial. Likely reasons include: ${topReasons}.`
       );
     } catch (err) {
       console.error(err);
-      setError("Something went wrong processing the claim.");
+      setError("Could not reach the claims prediction service. Please try again.");
     } finally {
       setLoading(false);
     }
