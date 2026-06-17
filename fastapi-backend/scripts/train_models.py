@@ -11,7 +11,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.multioutput import ClassifierChain
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
-from lightgbm import LGBMClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.multiclass import OneVsRestClassifier
 
 DATA_PATH = "data/claims_synthetic.csv"
 MODELS_DIR = "models"
@@ -99,47 +100,48 @@ def main():
     clf_bin = Pipeline(
         steps=[
             ("pre", preprocessor),
-            ("model", LGBMClassifier(
-                n_estimators=200,
-                learning_rate=0.05,
-                max_depth=-1,
+            ("model", RandomForestClassifier(
+                n_estimators=300,
+                max_depth=None,
                 random_state=42,
+                n_jobs=-1,
             )),
         ]
     )
 
-    print("Training binary approval model...")
+    print("\nTraining binary approval model...")
     clf_bin.fit(X_train, y_train)
 
     y_pred = clf_bin.predict(X_test)
-    print("Binary approval model report:")
+    print("\nBinary approval model report:")
     print(classification_report(y_test, y_pred, digits=3))
 
+    approval_model_path = os.path.join(MODELS_DIR, "approval_model.joblib")
     joblib.dump(
         {
             "pipeline": clf_bin,
             "feature_cols": X.columns.tolist(),
         },
-        os.path.join(MODELS_DIR, "approval_model.joblib"),
+        approval_model_path,
     )
-    print("Saved binary model to models/approval_model.joblib")
+    print(f"Saved binary model to {approval_model_path}")
 
     # ----- Multi-label classifier: denial reasons -----
     X_train_m, X_test_m, Y_train_m, Y_test_m = train_test_split(
         X, Y_reasons, test_size=0.2, random_state=42
     )
 
-    base_estimator = LGBMClassifier(
-        n_estimators=150,
-        learning_rate=0.05,
-        max_depth=-1,
+    multi_base = RandomForestClassifier(
+        n_estimators=200,
+        max_depth=None,
         random_state=42,
+        n_jobs=-1,
     )
 
     clf_multi = Pipeline(
         steps=[
             ("pre", preprocessor),
-            ("model", ClassifierChain(base_estimator)),
+            ("model", OneVsRestClassifier(multi_base)),
         ]
     )
 
