@@ -4,6 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
+import os
+import joblib
+import pandas as pd
+
 app = FastAPI(title="Healthcare Claims Triage & Explanation Copilot API")
 
 # Allow frontend to talk to backend during dev
@@ -45,52 +49,87 @@ class ExplanationResponse(BaseModel):
     denial_probability: float
     top_denial_reasons: List[DenialReason]
 
+# ---------- Load trained models ----------
+
+MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
+approval_model_path = os.path.abspath(os.path.join(MODELS_DIR, "approval_model.joblib"))
+denial_model_path = os.path.abspath(os.path.join(MODELS_DIR, "denial_reasons_model.joblib"))
+
+print("Loading models from:", approval_model_path, denial_model_path)
+
+approval_artifact = joblib.load(approval_model_path)
+denial_artifact = joblib.load(denial_model_path)
+
+approval_pipeline = approval_artifact["pipeline"]
+approval_features = approval_artifact["feature_cols"]
+
+denial_pipeline = denial_artifact["pipeline"]
+denial_features = denial_artifact["feature_cols"]
+denial_labels = denial_artifact["reason_labels"]
+
+def base_feature_row(claim: ClaimInput) -> dict:
+    return {
+        "service_type": "consultation",
+        "provider_type": claim.provider_type,
+        "network_status": claim.network_status,
+        "has_referral": 1,
+        "has_prior_auth": 1,
+        "documentation_level": "medium",
+        "billed_amount": claim.billed_amount,
+        "previous_claims_count": 0,
+        "previous_denials_count": 0,
+    }
+
+
+def claim_to_feature_row_for_approval(claim: ClaimInput) -> pd.DataFrame:
+    row = base_feature_row(claim)
+    df = pd.DataFrame([row])
+    return df[approval_features]
+
+
+def claim_to_feature_row_for_denial(claim: ClaimInput) -> pd.DataFrame:
+    row = base_feature_row(claim)
+    df = pd.DataFrame([row])
+    return df[denial_features]
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
 @app.post("/predict_claim", response_model=PredictionResponse)
-def predict_claim(claim: ClaimInput):
-    denial_score = 0.5
+def predict_claim(claim: ClaimInput) -> PredictionResponse:
+    # 1) Approval model
+    X_approval = claim_to_feature_row_for_approval(claim)
+    proba_approval = approval_pipeline.predict_proba(X_approval)[0]
+    # Assuming classes [0,1] = [denied, approved]
+    denial_prob = float(proba_approval[0])
+    approval_prob = float(proba_approval[1])
 
-    if claim.network_status.lower() == "out_of_network":
-        denial_score += 0.25
-    if claim.billed_amount > 10000:
-        denial_score += 0.2
-    if not claim.cpt_codes:
-        denial_score += 0.1
+    # 2) Denial reasons multi-label model
+    X_denial = claim_to_feature_row_for_denial(claim)
+    # OneVsRestClassifier.predict_proba returns list of arrays, one per label
+    proba_list = denial_pipeline.predict_proba(X_denial)
 
-    denial_score = min(max(denial_score, 0.0), 0.99)
-    approval_score = 1.0 - denial_score
+    reason_probs = []
+    for label, arr in zip(denial_labels, proba_list):
+        p = float(arr[0])  # probability that this label is 1 for our single row
+        reason_probs.append((label, p))
 
-    reasons: List[DenialReason] = []
-
-    if claim.network_status.lower() == "out_of_network":
-        reasons.append(DenialReason(reason="out_of_network", probability=0.6))
-
-    if claim.billed_amount > 10000:
-        reasons.append(DenialReason(reason="high_cost_requires_pre_auth", probability=0.5))
-
-    if not claim.cpt_codes:
-        reasons.append(DenialReason(reason="missing_procedure_code", probability=0.4))
-
-    if not reasons:
-        reasons.append(DenialReason(reason="insufficient_documentation", probability=0.35))
+    reason_probs.sort(key=lambda x: x[1], reverse=True)
+    top_reasons = [
+        DenialReason(reason=name, probability=prob)
+        for name, prob in reason_probs[:3]
+    ]
 
     return PredictionResponse(
-        approval_probability=approval_score,
-        denial_probability=denial_score,
-        top_denial_reasons=reasons,
+        approval_probability=approval_prob,
+        denial_probability=denial_prob,
+        top_denial_reasons=top_reasons,
     )
 
 
 @app.post("/explain_claim", response_model=ExplanationResponse)
 def explain_claim(claim: ClaimInput) -> ExplanationResponse:
-    """
-    For now: call our prediction logic and generate a structured,
-    human-readable explanation from those results.
-    Later: plug in RAG + LLM here.
-    """
     prediction = predict_claim(claim)
 
     denial_pct = round(prediction.denial_probability * 100, 1)
@@ -103,7 +142,7 @@ def explain_claim(claim: ClaimInput) -> ExplanationResponse:
 
     base_explanation = (
         f"This claim has an estimated {denial_pct}% chance of being denied and a "
-        f"{approval_pct}% chance of being approved, based on similar past cases.\n\n"
+        f"{approval_pct}% chance of being approved, based on patterns in similar past claims.\n\n"
         f"The most likely denial reasons are: {reasons_str}."
     )
 
