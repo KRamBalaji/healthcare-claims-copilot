@@ -7,6 +7,10 @@ from typing import List, Optional
 import os
 import joblib
 import pandas as pd
+from .rag import ClaimForRAG, PredictionForRAG, init_policy_retriever, generate_explanation_from_policies
+
+# After app is created:
+init_policy_retriever()
 
 app = FastAPI(title="Healthcare Claims Triage & Explanation Copilot API")
 
@@ -132,38 +136,28 @@ def predict_claim(claim: ClaimInput) -> PredictionResponse:
 def explain_claim(claim: ClaimInput) -> ExplanationResponse:
     prediction = predict_claim(claim)
 
-    denial_pct = round(prediction.denial_probability * 100, 1)
-    approval_pct = round(prediction.approval_probability * 100, 1)
-
-    reasons_str = ", ".join(
-        f"{r.reason.replace('_', ' ')} ({round(r.probability * 100, 1)}%)"
-        for r in prediction.top_denial_reasons
+    claim_rag = ClaimForRAG(
+        icd_codes=claim.icd_codes,
+        cpt_codes=claim.cpt_codes,
+        billed_amount=claim.billed_amount,
+        provider_type=claim.provider_type,
+        network_status=claim.network_status,
+        patient_question=claim.patient_question,
     )
 
-    base_explanation = (
-        f"This claim has an estimated {denial_pct}% chance of being denied and a "
-        f"{approval_pct}% chance of being approved, based on patterns in similar past claims.\n\n"
-        f"The most likely denial reasons are: {reasons_str}."
+    prediction_rag = PredictionForRAG(
+        approval_probability=prediction.approval_probability,
+        denial_probability=prediction.denial_probability,
+        top_denial_reasons=[r.reason for r in prediction.top_denial_reasons],
     )
 
-    if claim.patient_question:
-        explanation = (
-            f"You asked: \"{claim.patient_question.strip()}\"\n\n"
-            f"{base_explanation}\n\n"
-            "To reduce the risk of denial, you may need to provide additional clinical "
-            "documentation, confirm whether the provider is in network, and ensure that "
-            "any required prior authorization or referral is on file."
-        )
-    else:
-        explanation = (
-            f"{base_explanation}\n\n"
-            "To reduce the risk of denial, the reviewing agent should check for required "
-            "prior authorizations, referrals, and adequate clinical documentation for the "
-            "requested procedures."
-        )
+    explanation_text = generate_explanation_from_policies(
+        claim=claim_rag,
+        prediction=prediction_rag,
+    )
 
     return ExplanationResponse(
-        explanation=explanation,
+        explanation=explanation_text,
         approval_probability=prediction.approval_probability,
         denial_probability=prediction.denial_probability,
         top_denial_reasons=prediction.top_denial_reasons,
