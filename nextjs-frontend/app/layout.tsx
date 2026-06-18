@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { GeistSans } from "geist/font/sans";
+import { BackendStatus } from "../components/BackendStatus";
 
 export const metadata: Metadata = {
   title: "Healthcare Claims Copilot",
@@ -62,6 +63,12 @@ export default function RootLayout({
               </div>
               <div className="text-xs text-muted-foreground">
                 Environment: <span className="font-medium">Dev</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                  Dev
+                </span>
+                <BackendStatus />
               </div>
             </header>
             <main className="flex-1 p-4">{children}</main>
