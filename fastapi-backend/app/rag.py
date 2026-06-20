@@ -4,13 +4,7 @@ import os
 from typing import List
 
 from pydantic import BaseModel
-
-# If you use LangChain:
-# from langchain_community.document_loaders import DirectoryLoader
-# from langchain_text_splitters import RecursiveCharacterTextSplitter
-# from langchain_community.vectorstores import FAISS
-# from langchain.embeddings import <YourEmbeddingClass>
-# from langchain.llms import <YourLLMClass>
+from groq import Groq
 
 
 class ClaimForRAG(BaseModel):
@@ -27,97 +21,120 @@ class PredictionForRAG(BaseModel):
     denial_probability: float
     top_denial_reasons: List[str]
 
+def load_policy_snippets() -> str:
+    """
+    Temporarily: read all policy markdown files and concatenate them
+    into a single context string. Later, replace this with real retrieval.
+    """
+    base_dir = os.path.dirname(os.path.dirname(__file__))  # fastapi-backend/
+    policies_dir = os.path.join(base_dir, "policies")
 
-# global retriever / vector store
-_policy_retriever = None
+    snippets: list[str] = []
+    if not os.path.isdir(policies_dir):
+        return ""
+
+    for name in os.listdir(policies_dir):
+        if not name.endswith((".md", ".txt")):
+            continue
+        path = os.path.join(policies_dir, name)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                text = f.read()
+            snippets.append(f"# {name}\n{text}")
+        except Exception:
+            continue
+
+    return "\n\n".join(snippets)
 
 
-def init_policy_retriever():
-    global _policy_retriever
+POLICY_CONTEXT = load_policy_snippets()
 
-    policies_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "policies")
-
-    # Pseudocode with LangChain-style APIs
-    # loader = DirectoryLoader(policies_dir, glob="*.md", show_progress=True)
-    # docs = loader.load()
-    # splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=200)
-    # splits = splitter.split_documents(docs)
-    #
-    # embeddings = <YourEmbeddingClass>(...)
-    # vectorstore = FAISS.from_documents(splits, embeddings)
-    # _policy_retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
-
-    # For now, you can leave this as a stub or simple string search.
-    _policy_retriever = None
+def _get_groq_client() -> Groq:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "GROQ_API_KEY is not set. Please export it in the backend environment."
+        )
+    return Groq(api_key=api_key)
 
 
 def generate_explanation_from_policies(
     claim: ClaimForRAG, prediction: PredictionForRAG
 ) -> str:
-    # Build a simple text query combining denial reasons + network status + amount
-    reasons = ", ".join(prediction.top_denial_reasons)
-    base_query = f"denial reasons: {reasons}, network_status: {claim.network_status}, billed_amount: {claim.billed_amount}"
+    """
+    Use Groq + Llama 3.1 to generate a natural-language explanation of
+    why a claim may be denied and what to do next, grounded in policy text
+    and model predictions.
+    """
 
-    if claim.patient_question:
-        user_q = claim.patient_question.strip()
-    else:
-        user_q = "Explain why this claim may be denied and what documentation or actions are needed."
+    reasons_list = prediction.top_denial_reasons
+    reasons_str = ", ".join(reasons_list) if reasons_list else "none identified"
 
-    # retrieved_docs = []
-    # if _policy_retriever:
-    #     retrieved_docs = _policy_retriever.get_relevant_documents(base_query + " " + user_q)
-
-    # Context text: concatenate top policy chunks
-    # context_text = "\n\n".join(d.page_content for d in retrieved_docs)
-
-    # For now, we can just stitch policies naively:
-    context_text = (
-        "Relevant policy excerpts:\n"
-        "- MRI & Advanced Imaging Prior Authorization: high-cost imaging often requires prior auth and strong clinical documentation.\n"
-        "- Out-of-Network Provider Coverage: out-of-network services can be denied if not covered or not authorized.\n"
-        "- Clinical Documentation Requirements: high-cost procedures need clear diagnosis and progress notes."
+    user_q = (
+        claim.patient_question.strip()
+        if claim.patient_question
+        else "Explain why this claim may be denied and what is needed to get it approved."
     )
 
-    # Pseudocode prompt; in real code, call your LLM
-    # llm = <YourLLMClass>(...)
-    # prompt = f"""
-    # You are a healthcare claims assistant.
-    # Claim details:
-    # - ICD codes: {claim.icd_codes}
-    # - CPT codes: {claim.cpt_codes}
-    # - Billed amount: {claim.billed_amount}
-    # - Provider type: {claim.provider_type}
-    # - Network status: {claim.network_status}
-    #
-    # Model prediction:
-    # - Approval probability: {prediction.approval_probability:.2f}
-    # - Denial probability: {prediction.denial_probability:.2f}
-    # - Top denial reasons: {reasons}
-    #
-    # Policy context:
-    # {context_text}
-    #
-    # User question (if any): {user_q}
-    #
-    # In clear, simple language, explain:
-    # 1) Why this claim is at risk of denial.
-    # 2) What documentation or actions are needed to reduce denial risk.
-    # 3) Any specific notes related to out-of-network, pre-authorization, or medical necessity.
-    # """
-    #
-    # explanation = llm(prompt)
-    #
-    # return explanation
-
-    # Temporary stub while wiring:
-    explanation = (
-        f"Based on the model prediction and policy context, this claim has a notable risk of denial, "
-        f"with reasons such as {reasons}. High-cost services and out-of-network providers often require "
-        f"prior authorization and strong clinical documentation.\n\n"
-        f"To reduce denial risk, ensure that any required prior authorization is on file, verify whether "
-        f"the provider is in-network or if out-of-network benefits apply, and include recent progress notes "
-        f"and diagnostic information supporting the medical necessity of the service.\n\n"
-        f"User question: {user_q}"
+    # If policy context is empty for some reason, keep the prompt robust.
+    policy_block = (
+        POLICY_CONTEXT
+        if POLICY_CONTEXT
+        else "No explicit policy documents were loaded. Use only generic insurer best practices."
     )
 
+    # Build a single clear prompt for the LLM.
+    prompt = f"""
+You are an experienced healthcare claims assistant working for a health insurer.
+You explain claims decisions in simple, non-legal language and always ground
+your reasoning in the policy excerpts provided.
+
+POLICY EXCERPTS (for grounding your answer):
+{policy_block}
+
+CLAIM DETAILS:
+- ICD codes: {claim.icd_codes}
+- CPT codes: {claim.cpt_codes}
+- Billed amount: {claim.billed_amount}
+- Provider type: {claim.provider_type}
+- Network status: {claim.network_status}
+
+MODEL PREDICTION:
+- Approval probability: {prediction.approval_probability:.2f}
+- Denial probability: {prediction.denial_probability:.2f}
+- Top denial reasons (model): {reasons_str}
+
+USER QUESTION (if any):
+"{user_q}"
+
+YOUR TASK:
+Write a concise explanation (2–4 short paragraphs, no bullet points) that:
+
+1) Explains in plain language why this claim is at risk of denial, explicitly referencing the relevant ideas from the policy excerpts (e.g., out-of-network rules, prior authorization requirements, or documentation requirements).
+2) Describes what documentation, authorizations, or actions could reduce the denial risk or support an appeal.
+3) Uses a neutral, empathetic tone that a customer service agent could read directly to a patient.
+
+Avoid legal jargon. Do not invent new policies; stay consistent with the policy excerpts above.
+"""
+
+    client = _get_groq_client()
+
+    # Llama 3.1 70B via Groq; adjust model name if needed
+    response = client.chat.completions.create(
+        model="llama-3.1-70b-versatile",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are an expert healthcare claims assistant who explains decisions clearly and empathetically.",
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        temperature=0.2,
+        max_tokens=600,
+    )
+
+    explanation = response.choices[0].message.content.strip()
     return explanation

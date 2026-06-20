@@ -7,10 +7,7 @@ from typing import List, Optional
 import os
 import joblib
 import pandas as pd
-from .rag import ClaimForRAG, PredictionForRAG, init_policy_retriever, generate_explanation_from_policies
-
-# After app is created:
-init_policy_retriever()
+from .rag import ClaimForRAG, PredictionForRAG, generate_explanation_from_policies
 
 app = FastAPI(title="Healthcare Claims Triage & Explanation Copilot API")
 
