@@ -86,6 +86,24 @@ npm run dev
 
 Open `http://localhost:3000` in your browser.
 
+## Docker (optional)
+
+### Backend
+
+```bash
+cd fastapi-backend
+docker build -t claims-backend .
+docker run --rm -p 8000:8000 claims-backend
+```
+
+### Frontend
+
+```bash
+cd nextjs-frontend
+docker build -t claims-frontend .
+docker run --rm -p 3000:3000 claims-frontend
+```
+
 ## Roadmap ￼
 
 - Plug in real RAG over policy documents for `/explain_claim`.
