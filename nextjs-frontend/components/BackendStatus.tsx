@@ -26,7 +26,6 @@ export function BackendStatus() {
 
     check();
 
-    // optional: re-check every 30s in dev
     const id = setInterval(check, 30000);
     return () => {
       cancelled = true;
@@ -34,12 +33,12 @@ export function BackendStatus() {
     };
   }, []);
 
-  const color =
+  const styles =
     status === "ok"
-      ? "bg-emerald-400"
+      ? { dot: "bg-emerald-500", wrapper: "bg-emerald-50 text-emerald-700 border-emerald-200" }
       : status === "down"
-      ? "bg-red-400"
-      : "bg-slate-500";
+      ? { dot: "bg-red-500", wrapper: "bg-red-50 text-red-700 border-red-200" }
+      : { dot: "bg-slate-400", wrapper: "bg-slate-50 text-slate-600 border-slate-200" };
 
   const label =
     status === "ok"
@@ -49,8 +48,8 @@ export function BackendStatus() {
       : "API: checking";
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-300">
-      <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-all ${styles.wrapper}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${styles.dot}`} />
       {label}
     </span>
   );
