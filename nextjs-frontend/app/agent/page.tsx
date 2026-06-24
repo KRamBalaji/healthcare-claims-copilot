@@ -6,6 +6,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { 
+  LayoutDashboard, 
+  ChevronRight, 
+  Layers, 
+  ArrowRight, 
+  TrendingUp, 
+  Sparkles 
+} from "lucide-react";
 
 type DenialReason = { reason: string; probability: number };
 
@@ -104,82 +112,89 @@ export default function AgentPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight text-slate-50">
-            Agent View
-          </h2>
-          <p className="text-xs text-slate-400">
-            Quickly assess denial risk, reasons, and next actions for a single claim.
+    <div className="mx-auto w-full max-w-5xl space-y-6 font-sans">
+      
+      {/* Breadcrumbs and Page Heading */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-[#9ca3af] text-[11px] mb-2">
+            <LayoutDashboard className="w-3 h-3" />
+            <ChevronRight className="w-3 h-3" />
+            <span>Agent view</span>
+          </div>
+          <h1 className="text-2xl font-medium text-[#111827] mb-1">Agent Verification View</h1>
+          <p className="text-xs text-[#6b7280]">
+            Quickly assess denial risk, root reasons, and next actionable pathways for a single claim container.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        
+        {/* Optional Identifier Ingestion */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <Input
             placeholder="Claim ID (optional)"
             value={claimId}
             onChange={(e) => setClaimId(e.target.value)}
-            className="h-8 w-32 text-xs"
+            className="w-full sm:w-36 text-xs bg-white border-slate-200 h-9 focus-visible:ring-[#34d399]/20 focus-visible:border-[#6ee7b7]"
           />
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr,1.6fr]">
-        {/* Left: Claim summary + inputs */}
-        <Card className="border-slate-800 bg-slate-950/70 p-4 space-y-3">
-          <p className="text-xs font-medium text-slate-200">Claim details</p>
+      {/* Main Structural Splitting Layout Grid */}
+      <div className="grid gap-5 lg:grid-cols-[1.3fr,1.7fr] items-start">
+        
+        {/* Left Side: Parameters Form Wrapper Panel */}
+        <Card className="bg-white border-slate-200 shadow-sm rounded-xl p-5 space-y-4">
+          <div className="flex items-center gap-2 text-[10px] font-medium text-[#9ca3af] tracking-wider uppercase mb-1">
+            <Layers className="w-3.5 h-3.5 text-slate-400" />
+            Claim Telemetry Parameters
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-slate-300">
-                ICD Codes
-              </label>
+              <label className="text-[11px] font-medium text-slate-500">ICD Codes</label>
               <Input
                 value={icdCodes}
                 onChange={(e) => setIcdCodes(e.target.value)}
+                className="h-9 border-slate-200 focus-visible:ring-[#34d399]/20 focus-visible:border-[#6ee7b7]"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-slate-300">
-                CPT Codes
-              </label>
+              <label className="text-[11px] font-medium text-slate-500">CPT Codes</label>
               <Input
                 value={cptCodes}
                 onChange={(e) => setCptCodes(e.target.value)}
+                className="h-9 border-slate-200 focus-visible:ring-[#34d399]/20 focus-visible:border-[#6ee7b7]"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-slate-300">
-                Billed Amount (₹)
-              </label>
+              <label className="text-[11px] font-medium text-slate-500">Billed Amount (₹)</label>
               <Input
                 type="number"
                 value={billedAmount}
                 onChange={(e) => setBilledAmount(e.target.value)}
+                className="h-9 border-slate-200 focus-visible:ring-[#34d399]/20 focus-visible:border-[#6ee7b7]"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-slate-300">
-                Provider Type
-              </label>
+              <label className="text-[11px] font-medium text-slate-500">Provider Type</label>
               <Input
                 value={providerType}
                 onChange={(e) => setProviderType(e.target.value)}
+                className="h-9 border-slate-200 focus-visible:ring-[#34d399]/20 focus-visible:border-[#6ee7b7]"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-slate-300">
-                Network Status
-              </label>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-[11px] font-medium text-slate-500">Network Status</label>
               <Input
                 value={networkStatus}
                 onChange={(e) => setNetworkStatus(e.target.value)}
+                className="h-9 border-slate-200 focus-visible:ring-[#34d399]/20 focus-visible:border-[#6ee7b7]"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] font-medium text-slate-300">
+            <label className="text-[11px] font-medium text-slate-500">
               Agent notes / patient complaint (optional)
             </label>
             <Textarea
@@ -187,57 +202,67 @@ export default function AgentPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Member states MRI was ordered by in-network provider, wants to know why denied."
-              className="text-xs"
+              className="text-xs border-slate-200 focus-visible:ring-[#34d399]/20 focus-visible:border-[#6ee7b7]"
             />
           </div>
 
           {error && (
-            <p className="text-[11px] text-red-400">{error}</p>
+            <div className="bg-red-50 text-red-600 text-[11px] p-2.5 rounded-md border border-red-100 font-medium">
+              {error}
+            </div>
           )}
 
           <Button
             size="sm"
             onClick={handleReview}
             disabled={loading}
-            className="mt-1"
+            className="bg-[#34d399] hover:bg-[#059669] text-[#064e3b] font-medium px-4 h-9 gap-2 transition-all w-full sm:w-auto"
           >
-            {loading ? "Reviewing claim..." : "Review claim"}
+            {loading ? "Evaluating bounds..." : "Review claim"}
+            <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </Card>
 
-        {/* Right: Risk, reasons, explanation */}
-        <div className="space-y-3">
-          <Card className="border-slate-800 bg-slate-950/70 p-4 space-y-2">
-            <p className="text-xs font-medium text-slate-200">
-              Risk assessment
-            </p>
+        {/* Right Side: Risk Assessment Weights & Summaries */}
+        <div className="space-y-4">
+          
+          {/* Card: Risk Assessment Numbers */}
+          <Card className="bg-white border-slate-200 shadow-sm rounded-xl p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-[#111827] font-medium text-xs">
+              <TrendingUp className="w-4 h-4 text-slate-400" />
+              <span>Risk & Predictive Bounds</span>
+            </div>
+            
             {!prediction ? (
-              <p className="text-[11px] text-slate-400">
-                Run a review to see approval vs denial probability and likely reasons.
+              <p className="text-[11px] text-[#6b7280] my-auto py-4">
+                Run a live evaluation pipeline step to parse out metric variance layers.
               </p>
             ) : (
-              <div className="space-y-1 text-xs text-slate-300">
-                <p>
-                  Approval probability:{" "}
-                  <span className="font-semibold text-emerald-300">
-                    {(prediction.approval_probability * 100).toFixed(1)}%
-                  </span>
-                </p>
-                <p>
-                  Denial probability:{" "}
-                  <span className="font-semibold text-amber-300">
-                    {(prediction.denial_probability * 100).toFixed(1)}%
-                  </span>
-                </p>
-                <div className="mt-2 space-y-1">
-                  <p className="text-[11px] font-medium text-slate-400">
-                    Likely denial reasons:
-                  </p>
-                  <ul className="list-disc list-inside text-[11px] text-slate-300">
+              <div className="space-y-3.5 text-xs text-[#111827]">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="bg-[#ecfdf5] border border-[#a7f3d0] rounded-lg p-2.5">
+                    <div className="text-[10px] text-[#059669] font-medium uppercase tracking-wider">Approval Base</div>
+                    <div className="text-lg font-semibold text-[#059669] mt-0.5">
+                      {(prediction.approval_probability * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="bg-[#fff7ed] border border-[#fed7aa] rounded-lg p-2.5">
+                    <div className="text-[10px] text-[#c2410c] font-medium uppercase tracking-wider">Denial Hazard</div>
+                    <div className="text-lg font-semibold text-[#c2410c] mt-0.5">
+                      {(prediction.denial_probability * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100">
+                  <p className="text-[11px] font-medium text-[#9ca3af] mb-2 uppercase tracking-wide">Primary Structural Traps:</p>
+                  <ul className="space-y-1.5">
                     {prediction.top_denial_reasons.map((r) => (
-                      <li key={r.reason}>
-                        {r.reason.replace(/_/g, " ")} —{" "}
-                        {(r.probability * 100).toFixed(1)}%
+                      <li key={r.reason} className="flex items-center justify-between text-[11px] bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-md">
+                        <span className="capitalize text-slate-700 font-medium">{r.reason.replace(/_/g, " ")}</span>
+                        <span className="font-semibold text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px]">
+                          {(r.probability * 100).toFixed(1)}%
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -246,22 +271,31 @@ export default function AgentPage() {
             )}
           </Card>
 
-          <Card className="border-slate-800 bg-slate-950/70 p-4 space-y-2">
-            <p className="text-xs font-medium text-slate-200">
-              Explanation & next steps
-            </p>
-            {!explanation ? (
-              <p className="text-[11px] text-slate-400">
-                After reviewing a claim, a natural-language explanation and guidance will appear here.
+          {/* Card: Generated Explanations */}
+          <Card className="bg-white border-slate-200 shadow-sm rounded-xl p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-[#111827] font-medium text-xs">
+              <Sparkles className="w-4 h-4 text-[#34d399]" />
+              <span>Policy-Aware Synthesis &amp; Next Steps</span>
+            </div>
+            
+            {loading && !explanation ? (
+              <div className="my-auto py-6 space-y-2 text-center">
+                <div className="w-5 h-5 border-2 border-[#34d399] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-[11px] text-[#6b7280]">Parsing grounding matrices and compiling natural text parameters...</p>
+              </div>
+            ) : !explanation ? (
+              <p className="text-[11px] text-[#6b7280] my-auto py-4">
+                After executing an audit review, a complete natural-language guidance report will compile here.
               </p>
             ) : (
-              <div className="space-y-2">
-                <p className="whitespace-pre-line text-xs text-slate-200">
+              <div className="rounded-lg border border-slate-100 bg-[#f8fafc] p-3 flex-1 overflow-auto max-h-[220px]">
+                <p className="whitespace-pre-line text-[11px] text-[#334155] leading-relaxed">
                   {explanation.explanation}
                 </p>
               </div>
             )}
           </Card>
+
         </div>
       </div>
     </div>
