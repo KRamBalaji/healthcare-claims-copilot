@@ -121,7 +121,7 @@ Avoid legal jargon. Do not invent new policies; stay consistent with the policy 
 
     # Llama 3.1 70B via Groq; adjust model name if needed
     response = client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
+        model="llama-3.3-70b-versatile",
         messages=[
             {
                 "role": "system",
@@ -135,6 +135,7 @@ Avoid legal jargon. Do not invent new policies; stay consistent with the policy 
         temperature=0.2,
         max_tokens=600,
     )
+
 
     explanation = response.choices[0].message.content.strip()
     return explanation
