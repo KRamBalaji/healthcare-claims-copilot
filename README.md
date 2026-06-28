@@ -104,6 +104,44 @@ docker build -t claims-frontend .
 docker run --rm -p 3000:3000 claims-frontend
 ```
 
+## Screenshots
+
+Below are sample screenshots of the Healthcare Claims Triage & Explanation Copilot UI.
+
+### Triage Dashboard
+
+![Claim Traige](docs/screenshots/triage.png)
+
+- Main Triage page built with Next.js, TypeScript, and shadcn/ui.
+- Claim input form for ICD/CPT codes, billed amount, provider/network details, and patient question.
+- Real-time prediction card showing approval vs. denial probability and top denial reasons.
+- Explanation card showing Groq-backed, policy-aware natural language explanations.
+- Recent claims panel that lets agents quickly re-fill the form from previous submissions.
+
+### Agent View
+
+![Agent View](docs/screenshots/agent.png)
+
+- Agent-focused view that surfaces claim details, risk assessment, and explanation in one place.
+- Designed for faster triage and communication with members/providers.
+- Reuses the same REST APIs as the Triage page, with a different UX emphasis.
+
+### Policies View
+
+![Policies](docs/screenshots/policies.png)
+
+- Policies & RAG grounding page listing synthetic policy documents used for explanations.
+- Simple search/filter over policy titles, categories, and descriptions.
+- Serves as an explainability layer so the copilot isn’t a pure black box.
+
+### Layout & Navigation
+
+![App Layout](docs/screenshots/layout.png)
+
+- Global layout using shadcn’s sidebar primitives.
+- Collapsible sidebar with navigation to Triage, Agent View, and Policies.
+- Top header with sidebar trigger, environment label, and live backend health status.
+
 ## Roadmap ￼
 
 - Plug in real RAG over policy documents for `/explain_claim`.
